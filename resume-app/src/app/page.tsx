@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
-import { TrustSection } from "@/components/landing/TrustSection";
+import { TemplatesSection } from "@/components/landing/TemplatesSection";
 import { FeaturesSection } from "@/components/landing/FeaturesSection";
 import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { PricingSection } from "@/components/landing/PricingSection";
@@ -17,15 +17,17 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#09090B] selection:bg-[#EEF2FF] selection:text-[#4F46E5]">
+    <div className="min-h-screen bg-[#FAF9FD] text-slate-900 selection:bg-indigo-100 selection:text-indigo-700">
       <Navbar />
       <main>
         <Hero />
-        <TrustSection />
+        <TemplatesSection />
         <FeaturesSection />
         <HowItWorksSection />
         <PricingSection />
-        <FaqSection />
+        <div id="faq">
+          <FaqSection />
+        </div>
         <FinalCtaSection />
       </main>
       <Footer />

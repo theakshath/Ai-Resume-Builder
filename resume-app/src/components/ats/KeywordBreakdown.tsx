@@ -1,9 +1,8 @@
 "use client";
 
-import React from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Check, Plus, AlertCircle, Sparkles } from "lucide-react";
+import { Check, Plus, AlertCircle, Sparkles, Layers } from "lucide-react";
 
 export interface KeywordBreakdownProps {
   matchedKeywords?: string[];
@@ -33,7 +32,7 @@ export const KeywordBreakdown: React.FC<KeywordBreakdownProps> = ({
   ],
   onAddKeyword,
 }) => {
-  const [activeCategory, setActiveCategory] = React.useState<"all" | "hard" | "soft" | "tools">("all");
+  const [activeCategory, setActiveCategory] = useState<"all" | "hard" | "soft" | "tools">("all");
 
   // Keyword categorization mock mapping
   const categorizedMatched = matchedKeywords.filter((kw) => {
@@ -45,107 +44,110 @@ export const KeywordBreakdown: React.FC<KeywordBreakdownProps> = ({
   });
 
   return (
-    <Card className="border-[#E4E4E7] bg-white">
-      <CardHeader className="pb-3 border-b border-[#F4F4F5]">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-base font-semibold">Keyword Heatmap & Density Analysis</CardTitle>
-            <p className="text-xs text-[#71717A]">Optimized for ATS parser algorithm score density</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="success" size="sm">
-              {matchedKeywords.length} Matched
-            </Badge>
-            <Badge variant="warning" size="sm">
-              {missingKeywords.length} Missing
-            </Badge>
-            <Badge variant="indigo" size="sm">
-              Density Score: 8.4/10
-            </Badge>
-          </div>
+    <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-xs text-left space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1F5F9] pb-4">
+        <div>
+          <h3 className="text-base font-bold text-[#111827] flex items-center gap-2">
+            <Layers className="w-5 h-5 text-[#4F46E5]" />
+            Keyword Heatmap & Density Analysis
+          </h3>
+          <p className="text-xs text-[#64748B]">
+            Optimized for ATS parser algorithm score density
+          </p>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-5">
-        {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 border-b border-[#F4F4F5] pb-3">
-          {[
-            { id: "all", label: "All Categories" },
-            { id: "hard", label: "Hard Skills" },
-            { id: "soft", label: "Soft Skills & Leadership" },
-            { id: "tools", label: "Tools & Frameworks" },
-          ].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id as any)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                activeCategory === cat.id
-                  ? "bg-[#4F46E5] text-white shadow-2xs"
-                  : "bg-[#F4F4F5] text-[#52525B] hover:bg-[#E4E4E7]"
-              }`}
+        <div className="flex items-center gap-2">
+          <Badge variant="success" size="sm">
+            {matchedKeywords.length} Matched
+          </Badge>
+          <Badge variant="warning" size="sm">
+            {missingKeywords.length} Missing
+          </Badge>
+          <Badge variant="indigo" size="sm">
+            Density: 8.4/10
+          </Badge>
+        </div>
+      </div>
+
+      {/* Category Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none border-b border-[#F1F5F9] pb-3">
+        {[
+          { id: "all", label: "All Categories" },
+          { id: "hard", label: "Hard Skills" },
+          { id: "soft", label: "Soft Skills & Leadership" },
+          { id: "tools", label: "Tools & Frameworks" },
+        ].map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setActiveCategory(cat.id as any)}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all cursor-pointer ${
+              activeCategory === cat.id
+                ? "bg-[#4F46E5] text-white shadow-2xs"
+                : "bg-[#F8FAFC] text-[#475569] border border-[#E2E8F0] hover:bg-[#F1F5F9]"
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* MATCHED JOB KEYWORDS */}
+      <div className="space-y-2.5">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[#059669] flex items-center gap-1.5">
+          <Check className="w-4 h-4 stroke-[3]" /> Matched Job Keywords ({categorizedMatched.length})
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {categorizedMatched.map((kw, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] font-bold shadow-2xs"
             >
-              {cat.label}
+              <Check className="w-3.5 h-3.5 stroke-[3] text-[#10B981]" />
+              {kw}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* MISSING TARGET JOB KEYWORDS */}
+      <div className="space-y-2.5">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[#D97706] flex items-center gap-1.5">
+          <AlertCircle className="w-4 h-4 text-[#D97706]" /> Missing Target Job Keywords ({missingKeywords.length})
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {missingKeywords.map((kw, idx) => (
+            <button
+              key={idx}
+              onClick={() => onAddKeyword?.(kw)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A] hover:bg-[#FEF3C7] font-bold transition-all cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5 text-[#D97706]" />
+              {kw}
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Matched Keywords */}
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#059669] mb-2.5 flex items-center gap-1.5">
-            <Check className="w-4 h-4 stroke-[3]" /> Matched Job Keywords ({categorizedMatched.length})
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {categorizedMatched.map((kw, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] font-medium"
-              >
-                <Check className="w-3 h-3 stroke-[3]" />
-                {kw}
-              </span>
-            ))}
-          </div>
+      {/* HIGH-IMPACT RECOMMENDED ADDITIONS */}
+      <div className="p-4 bg-gradient-to-r from-[#FAF9FF] to-[#EEF2FF] border border-[#E0E0F0] rounded-2xl space-y-3">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-[#4F46E5] flex items-center gap-1.5">
+          <Sparkles className="w-4 h-4 text-[#4F46E5]" /> High-Impact Recommended Additions
+        </h4>
+        <div className="flex flex-wrap gap-2.5">
+          {recommendedKeywords.map((rec, idx) => (
+            <div
+              key={idx}
+              onClick={() => onAddKeyword?.(rec.name)}
+              className="px-3.5 py-2 bg-white border border-[#E0E7FF] rounded-xl flex items-center gap-2.5 text-xs font-bold text-[#111827] cursor-pointer hover:border-[#4F46E5] hover:shadow-xs transition-all"
+            >
+              <span>{rec.name}</span>
+              <Badge variant={rec.priority === "High" ? "error" : "warning"} size="sm">
+                {rec.priority} Priority
+              </Badge>
+            </div>
+          ))}
         </div>
-
-        {/* Missing Keywords */}
-        <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#D97706] mb-2.5 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> Missing Target Job Keywords ({missingKeywords.length})
-          </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {missingKeywords.map((kw, idx) => (
-              <button
-                key={idx}
-                onClick={() => onAddKeyword?.(kw)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A] hover:bg-[#FEF3C7] font-medium transition-colors cursor-pointer"
-              >
-                <Plus className="w-3 h-3" />
-                {kw}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Priority Recommended Keywords */}
-        <div className="p-3.5 bg-[#EEF2FF]/60 border border-[#E0E7FF] rounded-xl space-y-2">
-          <h4 className="text-xs font-bold text-[#4F46E5] flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" /> High-Impact Recommended Additions
-          </h4>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {recommendedKeywords.map((rec, idx) => (
-              <div
-                key={idx}
-                onClick={() => onAddKeyword?.(rec.name)}
-                className="px-3 py-1 bg-white border border-[#E0E7FF] rounded-lg flex items-center gap-2 text-xs font-semibold text-[#09090B] cursor-pointer hover:border-[#4F46E5] transition-colors shadow-2xs"
-              >
-                <span>{rec.name}</span>
-                <Badge variant={rec.priority === "High" ? "error" : "warning"} size="sm">
-                  {rec.priority}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

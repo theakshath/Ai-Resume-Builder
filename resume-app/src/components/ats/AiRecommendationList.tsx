@@ -2,10 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Sparkles, ArrowRight, CheckCircle2, AlertTriangle, Lightbulb } from "lucide-react";
+import { Sparkles, ArrowRight, Lightbulb } from "lucide-react";
 
 export interface RecommendationItem {
   id: string;
@@ -60,55 +58,57 @@ export const AiRecommendationList: React.FC<AiRecommendationListProps> = ({
   onOptimizeClick,
 }) => {
   return (
-    <Card className="border-[#E4E4E7] bg-white">
-      <CardHeader className="pb-3 border-b border-[#F4F4F5]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-[#4F46E5]" />
-            <CardTitle className="text-base font-semibold">Actionable AI Improvement Recommendations</CardTitle>
-          </div>
-          <Badge variant="indigo" size="sm">
-            {recommendations.length} Actionable Items
-          </Badge>
+    <div className="bg-white border border-[#E2E8F0] rounded-3xl p-6 sm:p-8 shadow-xs text-left space-y-6">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#F1F5F9] pb-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-[#4F46E5]" />
+          <h3 className="text-base font-bold text-[#111827]">
+            Actionable AI Improvement Recommendations
+          </h3>
         </div>
-      </CardHeader>
-      <CardContent className="pt-4 space-y-4">
+        <Badge variant="indigo" size="sm">
+          {recommendations.length} Actionable Items
+        </Badge>
+      </div>
+
+      {/* Recommendations Cards List */}
+      <div className="space-y-4">
         {recommendations.map((rec) => (
           <div
             key={rec.id}
-            className="p-4 bg-[#FAF9F6] border border-[#E4E4E7] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#D4D4D8] transition-colors"
+            className="p-5 bg-[#FAF9FF] border border-[#E0E0F0] hover:border-[#4F46E5]/40 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all shadow-2xs hover:shadow-xs"
           >
-            <div className="space-y-1.5 text-left max-w-2xl">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-[#09090B]">{rec.title}</span>
+            <div className="space-y-2.5 text-left max-w-2xl">
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm font-bold text-[#111827]">{rec.title}</span>
                 <Badge variant={rec.impactBadge === "High" ? "error" : "warning"} size="sm">
                   {rec.impactBadge} Priority
                 </Badge>
               </div>
 
-              <div className="p-2.5 bg-white border border-[#E4E4E7] rounded-lg text-xs text-[#52525B] flex items-start gap-2">
+              <div className="p-3 bg-white border border-[#E2E8F0] rounded-xl text-xs text-[#475569] flex items-start gap-2.5">
                 <Lightbulb className="w-4 h-4 text-[#D97706] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-[#09090B] block mb-0.5">Why this matters:</span>
+                <div className="space-y-0.5">
+                  <span className="font-bold text-[#111827] block">Why this matters:</span>
                   <span>{rec.whyItMatters}</span>
                 </div>
               </div>
             </div>
 
-            <Link href="/dashboard/resumes/builder" className="shrink-0 self-end sm:self-auto">
-              <Button
-                variant="primary"
-                size="sm"
+            <Link href="/dashboard/resumes/builder" className="shrink-0 self-end md:self-auto">
+              <button
+                type="button"
                 onClick={() => onOptimizeClick?.(rec.targetSection)}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                className="font-semibold text-xs shadow-2xs"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4F46E5] hover:bg-[#4338CA] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
               >
-                {rec.suggestedAction}
-              </Button>
+                <span>{rec.suggestedAction}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </Link>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

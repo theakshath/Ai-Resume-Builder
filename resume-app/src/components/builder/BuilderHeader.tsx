@@ -1,14 +1,16 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ProgressRing } from "@/components/ui/ProgressBar";
-import { ArrowLeft, Save, Download, FileText, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, Download, CheckCircle2, Loader2, AlertCircle, ChevronDown } from "lucide-react";
+import { TEMPLATE_REGISTRY, resolveTemplate } from "@/lib/templates/registry";
 
 export interface BuilderHeaderProps {
   onSave?: () => void;
   onDownloadPdf?: () => void;
-  templateStyle?: "modern" | "executive" | "minimalist" | "creative";
-  onTemplateStyleChange?: (style: "modern" | "executive" | "minimalist" | "creative") => void;
+  /** Full template ID string, e.g. "tech-elite", "minimal-clean" */
+  templateStyle?: string;
+  onTemplateStyleChange?: (templateId: string) => void;
   docName?: string;
   onDocNameChange?: (name: string) => void;
   saveStatus?: "saved" | "saving" | "failed" | "unsaved";
@@ -19,7 +21,7 @@ export interface BuilderHeaderProps {
 export const BuilderHeader: React.FC<BuilderHeaderProps> = ({
   onSave,
   onDownloadPdf,
-  templateStyle = "modern",
+  templateStyle = "modern-professional",
   onTemplateStyleChange,
   docName = "My Resume Draft",
   onDocNameChange,
@@ -27,12 +29,21 @@ export const BuilderHeader: React.FC<BuilderHeaderProps> = ({
   saveStatusMessage,
   isDownloadingPdf = false,
 }) => {
-  const templates: Array<{ id: "modern" | "executive" | "minimalist" | "creative"; name: string }> = [
-    { id: "modern", name: "Modern Tech" },
-    { id: "executive", name: "Executive" },
-    { id: "minimalist", name: "Minimalist" },
-    { id: "creative", name: "Creative" },
-  ];
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const currentTemplate = resolveTemplate(templateStyle);
 
   return (
     <header className="h-16 bg-white border-b border-[#E4E4E7] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 select-none">
@@ -84,23 +95,55 @@ export const BuilderHeader: React.FC<BuilderHeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Template Picker & Resume Health Meter */}
+      {/* Center: Template Picker Dropdown & Resume Health Meter */}
       <div className="hidden lg:flex items-center gap-4 bg-[#FAF9F6] border border-[#E4E4E7] px-3.5 py-1.5 rounded-xl">
-        <div className="flex items-center gap-1 bg-white border border-[#E4E4E7] p-1 rounded-lg">
-          {templates.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => onTemplateStyleChange?.(t.id)}
-              className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
-                templateStyle === t.id
-                  ? "bg-[#4F46E5] text-white shadow-xs"
-                  : "text-[#52525B] hover:text-[#09090B] hover:bg-[#F4F4F5]"
-              }`}
+        {/* Template Selector — shows current template name, opens full dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((o) => !o)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E4E4E7] text-xs font-semibold text-[#09090B] hover:bg-[#F4F4F5] transition-all min-w-[140px] justify-between"
+            aria-haspopup="listbox"
+            aria-expanded={dropdownOpen}
+          >
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#4F46E5] inline-block" />
+              {currentTemplate.name}
+            </span>
+            <ChevronDown className={`w-3.5 h-3.5 text-[#71717A] transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {dropdownOpen && (
+            <div
+              role="listbox"
+              aria-label="Select template"
+              className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-[#E4E4E7] rounded-xl shadow-lg z-50 py-1.5 max-h-72 overflow-y-auto"
             >
-              {t.name}
-            </button>
-          ))}
+              {TEMPLATE_REGISTRY.map((tmpl) => {
+                const isSelected = tmpl.id === templateStyle;
+                return (
+                  <button
+                    key={tmpl.id}
+                    role="option"
+                    aria-selected={isSelected}
+                    type="button"
+                    onClick={() => {
+                      onTemplateStyleChange?.(tmpl.id);
+                      setDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium flex items-center justify-between transition-colors ${
+                      isSelected
+                        ? "bg-[#EEF2FF] text-[#4F46E5] font-bold"
+                        : "text-[#52525B] hover:bg-[#F4F4F5] hover:text-[#09090B]"
+                    }`}
+                  >
+                    <span>{tmpl.name}</span>
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#4F46E5]" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="h-6 w-px bg-[#E4E4E7]" />

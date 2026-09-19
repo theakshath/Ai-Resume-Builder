@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Check, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export const PricingSection: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
@@ -59,42 +60,42 @@ export const PricingSection: React.FC = () => {
   ];
 
   return (
-    <section id="pricing" className="py-24">
+    <section id="pricing" className="py-20 sm:py-28 bg-slate-50/50 border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto space-y-3 mb-10">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#4F46E5]">
-            Transparent Pricing
+        <div className="text-center max-w-2xl mx-auto space-y-4 mb-16">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-xs font-bold uppercase tracking-wider text-indigo-700">
+            Simple, Transparent Pricing
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#09090B] tracking-tight">
-            Invest in your next career milestone.
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            Invest in your career with clear plans.
           </h2>
-          <p className="text-base text-[#52525B]">
-            No hidden lock-ins. Cancel or downgrade anytime in your dashboard settings.
+          <p className="text-sm sm:text-base text-slate-600">
+            Start completely free or unlock unlimited AI optimization and mock interviews with Pro.
           </p>
 
-          {/* Toggle */}
-          <div className="pt-4 flex items-center justify-center">
-            <div className="inline-flex items-center bg-white border border-[#E4E4E7] p-1 rounded-xl shadow-2xs">
+          {/* Billing Cycle Switcher */}
+          <div className="pt-2 flex items-center justify-center">
+            <div className="bg-slate-200/70 p-1 rounded-full flex items-center gap-1 border border-slate-300/50">
               <button
                 onClick={() => setBillingCycle("monthly")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                   billingCycle === "monthly"
-                    ? "bg-[#4F46E5] text-white shadow-xs"
-                    : "text-[#52525B] hover:text-[#09090B]"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Monthly Billing
               </button>
               <button
                 onClick={() => setBillingCycle("yearly")}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5 ${
                   billingCycle === "yearly"
-                    ? "bg-[#4F46E5] text-white shadow-xs"
-                    : "text-[#52525B] hover:text-[#09090B]"
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <span>Annual Billing</span>
-                <span className="px-1.5 py-0.5 text-[10px] bg-[#ECFDF5] text-[#059669] rounded font-bold">
+                Yearly Billing
+                <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">
                   Save 25%
                 </span>
               </button>
@@ -102,69 +103,73 @@ export const PricingSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Pricing Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        {/* Pricing Cards Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
           {plans.map((plan, idx) => {
-            const price = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
+            const price = billingCycle === "monthly" ? plan.priceMonthly : plan.priceYearly;
+
             return (
               <div
                 key={idx}
-                className={`bg-white rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all relative ${
+                className={`bg-white rounded-3xl p-8 flex flex-col justify-between transition-all duration-300 relative text-left ${
                   plan.popular
-                    ? "border-2 border-[#4F46E5] shadow-lg ring-4 ring-[#EEF2FF]"
-                    : "border border-[#E4E4E7] shadow-xs hover:border-[#D4D4D8]"
+                    ? "border-2 border-indigo-600 shadow-xl shadow-indigo-500/10 scale-102 lg:-translate-y-2"
+                    : "border border-slate-200/90 shadow-sm hover:shadow-lg hover:border-slate-300"
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge variant="indigo" size="sm" className="shadow-xs font-bold px-3">
-                      <Sparkles className="w-3 h-3 mr-1" /> Most Popular Candidate Choice
-                    </Badge>
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="inline-flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-sm">
+                      <Sparkles className="w-3 h-3" /> Most Popular
+                    </span>
                   </div>
                 )}
 
                 <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-xl font-bold text-[#09090B]">{plan.name}</h3>
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
+                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">{plan.description}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-[#52525B] min-h-[36px]">{plan.description}</p>
 
-                  <div className="my-6">
-                    <span className="text-4xl font-extrabold text-[#09090B] tracking-tight">
+                  <div className="my-6 pb-6 border-b border-slate-100 flex items-baseline gap-1.5">
+                    <span className="text-4xl font-extrabold tracking-tight text-slate-900">
                       ${price}
                     </span>
-                    <span className="text-xs text-[#71717A] ml-1">/ month</span>
-                    {billingCycle === "yearly" && price > 0 && (
-                      <p className="text-[11px] text-[#059669] font-medium mt-1">
-                        Billed annually (${price * 12}/yr)
-                      </p>
-                    )}
+                    <span className="text-xs font-medium text-slate-500">
+                      / month {billingCycle === "yearly" && "(billed annually)"}
+                    </span>
                   </div>
 
-                  <div className="space-y-3 border-t border-[#F4F4F5] pt-6 mb-8 text-xs text-[#52525B]">
-                    {plan.features.map((feat, fIdx) => (
-                      <div key={fIdx} className="flex items-start gap-2.5">
-                        <Check className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5 stroke-[3]" />
-                        <span>{feat}</span>
+                  <div className="space-y-3 mb-8">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                      What's Included:
+                    </span>
+                    {plan.features.map((feature, fIdx) => (
+                      <div key={fIdx} className="flex items-start gap-2.5 text-xs text-slate-700">
+                        <div className="p-0.5 rounded-full bg-emerald-50 text-emerald-600 shrink-0 mt-0.5">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="leading-relaxed">{feature}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <Button
-                  variant={plan.variant}
-                  size="lg"
-                  onClick={() => {
-                    if (price === 0) {
-                      window.location.href = "/signup";
-                    } else {
-                      alert(`${plan.name} Plan Checkout (Coming Soon) — Live Stripe subscription processing is coming soon! You can use all features during the free preview.`);
-                    }
-                  }}
-                  className="w-full font-semibold"
-                >
-                  {plan.priceMonthly === 0 ? "Start Free" : `${plan.cta}`}
-                </Button>
+                <Link href="/signup" className="w-full">
+                  <Button
+                    variant={plan.variant}
+                    size="lg"
+                    className={`w-full rounded-full font-semibold transition-all ${
+                      plan.popular
+                        ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20"
+                        : "border-slate-300 hover:bg-slate-50 text-slate-800"
+                    }`}
+                  >
+                    {plan.cta}
+                  </Button>
+                </Link>
               </div>
             );
           })}

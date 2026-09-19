@@ -63,14 +63,8 @@ let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
 
 try {
-  appInstance =
-    typeof window !== "undefined" || isFirebaseConfigured()
-      ? getApps().length
-        ? getApp()
-        : initializeApp(firebaseConfig)
-      : null;
-
-  if (appInstance) {
+  if (isFirebaseConfigured()) {
+    appInstance = getApps().length ? getApp() : initializeApp(firebaseConfig);
     authInstance = getAuth(appInstance);
     dbInstance = getFirestore(appInstance);
     storageInstance = getStorage(appInstance);

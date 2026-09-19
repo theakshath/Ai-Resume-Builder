@@ -3,6 +3,7 @@
 import React from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Sparkles, Mail, Phone, MapPin, Globe, Share2, ShieldCheck } from "lucide-react";
+import { getVisualStyle } from "@/lib/templates/registry";
 
 export interface FullResumeState {
   personalInfo: {
@@ -114,20 +115,25 @@ export const initialResumeState: FullResumeState = {
 };
 
 export interface LiveResumePaperPreviewProps {
-  data: FullResumeState;
-  templateStyle?: "modern" | "executive" | "minimalist" | "creative";
+  data?: FullResumeState;
+  /** Accepts any template ID (e.g. "tech-elite") OR a legacy visual style ("modern"). */
+  templateStyle?: string;
   className?: string;
 }
 
 export const LiveResumePaperPreview: React.FC<LiveResumePaperPreviewProps> = ({
-  data,
-  templateStyle = "modern",
+  data = initialResumeState,
+  templateStyle = "modern-professional",
   className,
 }) => {
   const { personalInfo, summary, experience, education, skills, projects, certifications } = data;
 
-  // Theme styling rules
-  const themeClasses = {
+  // Resolve any template ID to the 4 visual rendering themes.
+  // This makes the preview work with "tech-elite", "minimal-clean", etc.
+  const resolvedStyle = getVisualStyle(templateStyle);
+
+  // Theme styling rules — keyed by the 4 canonical visual styles
+  const themeMap = {
     modern: {
       container: "font-sans bg-white border-[#E4E4E7]",
       accentText: "text-[#4F46E5]",
@@ -164,7 +170,8 @@ export const LiveResumePaperPreview: React.FC<LiveResumePaperPreviewProps> = ({
       sectionHeader: "text-xs font-bold uppercase tracking-wider text-[#7C3AED] border-b-2 border-[#DDD6FE] pb-1 mb-2",
       badgeVariant: "indigo" as const,
     },
-  }[templateStyle];
+  };
+  const themeClasses = themeMap[resolvedStyle];
 
   return (
     <div

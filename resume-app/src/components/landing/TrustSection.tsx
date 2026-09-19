@@ -1,45 +1,31 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Sparkles, LayoutTemplate, Lock } from "lucide-react";
 
 export const TrustSection: React.FC = () => {
-  const trustSignals = [
-    {
-      icon: <ShieldCheck className="w-5 h-5 text-[#10B981]" />,
-      title: "ATS-Friendly",
-      description: "Formats structured to parse cleanly on Workday, Taleo, Greenhouse, and Lever engines.",
-    },
-    {
-      icon: <Sparkles className="w-5 h-5 text-[#4F46E5]" />,
-      title: "AI-Powered",
-      description: "Instant bullet point rewrites, keyword density analysis, and metric quantification.",
-    },
-    {
-      icon: <LayoutTemplate className="w-5 h-5 text-[#4F46E5]" />,
-      title: "Professional Templates",
-      description: "Clean, battle-tested typography layouts crafted by tech product leaders.",
-    },
-    {
-      icon: <Lock className="w-5 h-5 text-[#52525B]" />,
-      title: "Privacy-Focused",
-      description: "Your personal details and work history are never sold or trained on public LLMs.",
-    },
+  const companies = [
+    { name: "Google", font: "font-semibold tracking-tight" },
+    { name: "Microsoft", font: "font-medium tracking-tight" },
+    { name: "amazon", font: "font-bold lowercase tracking-normal" },
+    { name: "TCS", font: "font-bold tracking-wider" },
+    { name: "Infosys", font: "font-medium tracking-wide" },
+    { name: "accenture", font: "font-semibold lowercase tracking-tight" },
   ];
 
   return (
-    <section className="py-12 border-y border-[#E4E4E7] bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {trustSignals.map((signal, idx) => (
-            <div key={idx} className="flex items-start gap-3.5">
-              <div className="p-2.5 rounded-xl bg-[#FAF9F6] border border-[#E4E4E7] shrink-0">
-                {signal.icon}
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <h3 className="text-sm font-semibold text-[#09090B]">{signal.title}</h3>
-                <p className="text-xs text-[#52525B] leading-relaxed">{signal.description}</p>
-              </div>
+    <section className="py-10 border-y border-slate-200/70 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Trusted by students and professionals at
+        </p>
+
+        <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12 md:gap-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-300">
+          {companies.map((company, idx) => (
+            <div
+              key={idx}
+              className={`text-slate-600 hover:text-slate-900 text-lg sm:text-xl ${company.font} transition-colors select-none`}
+            >
+              {company.name}
             </div>
           ))}
         </div>

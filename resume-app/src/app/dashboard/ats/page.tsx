@@ -78,7 +78,7 @@ export default function AtsOptimizerPage() {
   return (
     <div className="space-y-6">
       {/* 1. Visual Process Header */}
-      <ProcessFlowHeader />
+      <ProcessFlowHeader analysisReady={!!analysisReport} />
 
       {/* 2. Top Input Section */}
       <JobDescriptionInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />

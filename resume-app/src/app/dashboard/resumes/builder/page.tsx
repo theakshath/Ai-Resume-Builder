@@ -18,17 +18,34 @@ import { useAuth } from "@/lib/firebase/context";
 import { createResumeDoc, getResumeDocById, updateResumeDoc, ResumeDocument } from "@/lib/firebase/firestore";
 import { generateResumePDFBuffer } from "@/lib/export/pdf-generator";
 import { useSearchParams, useRouter } from "next/navigation";
+import { resolveTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/templates/registry";
 
 function ResumeBuilderContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const resumeIdParam = searchParams.get("id");
+  // templateParam is the stable template ID passed from the Templates page
+  // e.g. "tech-elite", "minimal-clean", "creative-sidebar"
+  const templateParam = searchParams.get("template");
   const { user } = useAuth();
 
   const [activeResumeId, setActiveResumeId] = useState<string | null>(resumeIdParam);
   const [docName, setDocName] = useState<string>("My Resume Draft");
   const [resumeData, setResumeData] = useState<FullResumeState>(initialResumeState);
-  const [templateStyle, setTemplateStyle] = useState<"modern" | "executive" | "minimalist" | "creative">("modern");
+
+  // ─── Template ID state ──────────────────────────────────────────────────────
+  // Priority:
+  //   1. Explicit ?template= URL param from Templates page  ← highest priority
+  //   2. Saved templateStyle on an existing resume (set in loadResumeData below)
+  //   3. Default template
+  //
+  // We initialize directly from templateParam (no fuzzy mapping).
+  // resolveTemplate validates the ID and falls back to DEFAULT_TEMPLATE_ID
+  // if an unknown value is given, so it is always safe.
+  const [templateStyle, setTemplateStyle] = useState<string>(
+    resolveTemplate(templateParam).id
+  );
+
   const [activeMobileTab, setActiveMobileTab] = useState<"edit" | "preview">("edit");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<"success" | "error">("success");
@@ -76,7 +93,14 @@ function ResumeBuilderContent() {
           const doc = await getResumeDocById(user.uid, activeResumeId);
           if (doc) {
             setDocName(doc.title || "My Resume Draft");
-            if (doc.templateStyle) setTemplateStyle(doc.templateStyle as any);
+
+            // CRITICAL: Only restore the saved template if the user did NOT
+            // explicitly select a template from the Templates page.
+            // templateParam (from URL) always has higher priority.
+            if (!templateParam && doc.templateStyle) {
+              setTemplateStyle(resolveTemplate(doc.templateStyle).id);
+            }
+
             if (doc.sectionOrder) setSectionOrder(doc.sectionOrder);
 
             const restored: FullResumeState = {
@@ -101,6 +125,7 @@ function ResumeBuilderContent() {
 
     loadResumeData();
   }, [activeResumeId, user]);
+
 
   // 2. Draft Persistence Logic (Firestore & Local)
   const persistDraft = async () => {
@@ -360,7 +385,7 @@ function ResumeBuilderContent() {
         >
           <div className="flex justify-between items-center">
             <span className="text-xs font-bold uppercase tracking-wider text-[#52525B]">
-              Real-Time Paper Preview ({templateStyle.toUpperCase()})
+              Real-Time Paper Preview ({resolveTemplate(templateStyle).name})
             </span>
             <span className="text-[11px] text-[#059669] font-medium">
               ✓ Single-Page Recruiter Layout
