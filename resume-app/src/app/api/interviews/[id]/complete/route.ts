@@ -3,6 +3,7 @@ import { handleApiError } from "@/lib/errors/api-error";
 import { successResponse } from "@/lib/responses";
 import { getCurrentUser } from "@/lib/auth/get-session";
 import { INTERVIEW_PRACTICE_DISCLAIMER } from "@/lib/interviews/engine";
+import { getUserInterviewsDocs } from "@/lib/firebase/firestore";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,7 +11,7 @@ interface RouteParams {
 
 /**
  * POST /api/interviews/[id]/complete
- * Marks interview as completed, calculates aggregate overall score, and sets completion timestamp.
+ * Marks interview as completed, calculates aggregate overall score from actual evaluations, and sets completion timestamp.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
@@ -40,14 +41,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       bodyPayload = await request.json();
     } catch {}
 
-    const overallScore = bodyPayload.overallScore || bodyPayload.overall_score || 82;
+    let overallScore = typeof bodyPayload.overallScore === 'number'
+      ? bodyPayload.overallScore
+      : typeof bodyPayload.overall_score === 'number'
+      ? bodyPayload.overall_score
+      : undefined;
+
+    // If overallScore was not passed in body, fetch interview data from Firestore to compute exact average
+    if (overallScore === undefined) {
+      try {
+        const interviews = await getUserInterviewsDocs(user.id);
+        const session = interviews.find((i: any) => i.id === id);
+        if (session && typeof session.overallScore === 'number') {
+          overallScore = session.overallScore;
+        }
+      } catch {}
+    }
+
     const completedAt = new Date().toISOString();
 
     const completedInterview = {
       id,
       user_id: user.id,
       status: "completed",
-      overall_score: overallScore,
+      overall_score: overallScore ?? null,
       completed_at: completedAt,
     };
 

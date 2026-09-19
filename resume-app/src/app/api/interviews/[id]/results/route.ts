@@ -51,44 +51,62 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       answers = answersData || [];
     }
 
-    // Compute average dimension scores
-    const count = answers.length || 1;
-    const technicalScore = Math.round(answers.reduce((s, a) => s + (a.technical_score || 0), 0) / count) || 0;
-    const communicationScore = Math.round(answers.reduce((s, a) => s + (a.communication_score || 0), 0) / count) || 0;
-    const confidenceScore = Math.round(answers.reduce((s, a) => s + (a.confidence_score || 0), 0) / count) || 0;
-    const relevanceScore = Math.round(answers.reduce((s, a) => s + (a.relevance_score || 0), 0) / count) || 0;
-    const overallScore = interview.overall_score || Math.round((technicalScore + communicationScore + confidenceScore + relevanceScore) / 4);
+    // Compute average dimension scores from actual answers
+    const answersCount = answers.length;
+    let overallScore: number | null = null;
+    let technicalScore: number | null = null;
+    let communicationScore: number | null = null;
+    let relevanceScore: number | null = null;
+    let starScore: number | null = null;
+
+    if (answersCount > 0) {
+      technicalScore = Math.round(answers.reduce((s, a) => s + (a.technical_score ?? 0), 0) / answersCount);
+      communicationScore = Math.round(answers.reduce((s, a) => s + (a.communication_score ?? 0), 0) / answersCount);
+      relevanceScore = Math.round(answers.reduce((s, a) => s + (a.relevance_score ?? 0), 0) / answersCount);
+      
+      const starAnswers = answers.filter((a) => typeof a.star_score === 'number');
+      if (starAnswers.length > 0) {
+        starScore = Math.round(starAnswers.reduce((s, a) => s + a.star_score, 0) / starAnswers.length);
+      }
+
+      overallScore = Math.round(answers.reduce((s, a) => s + (a.overall_score ?? 0), 0) / answersCount);
+    } else if (typeof interview.overall_score === 'number') {
+      overallScore = interview.overall_score;
+    }
 
     // Aggregate strengths, improvements, and practice areas
     const strengthsSet = new Set<string>();
     const improvementsSet = new Set<string>();
-    const practiceAreasSet = new Set<string>();
+    const missingConceptsSet = new Set<string>();
 
     answers.forEach((a) => {
-      const fb = a.ai_feedback || {};
+      const fb = a.ai_feedback || a.eval_result || {};
       if (Array.isArray(fb.strengths)) fb.strengths.forEach((s: string) => strengthsSet.add(s));
       if (Array.isArray(fb.improvements)) fb.improvements.forEach((i: string) => improvementsSet.add(i));
-      if (Array.isArray(fb.practice_areas)) fb.practice_areas.forEach((p: string) => practiceAreasSet.add(p));
+      if (Array.isArray(fb.weaknesses)) fb.weaknesses.forEach((w: string) => improvementsSet.add(w));
+      if (Array.isArray(fb.missing_concepts)) fb.missing_concepts.forEach((m: string) => missingConceptsSet.add(m));
+      if (Array.isArray(fb.missingConcepts)) fb.missingConcepts.forEach((m: string) => missingConceptsSet.add(m));
     });
 
     return successResponse({
       interview_id: id,
       status: interview.status,
-      target_role: interview.target_role,
-      interview_type: interview.interview_type,
+      target_role: interview.target_role || interview.jobRole,
+      interview_type: interview.interview_type || interview.interviewType,
       difficulty: interview.difficulty,
       scores: {
         overall_score: overallScore,
         technical_score: technicalScore,
         communication_score: communicationScore,
-        confidence_score: confidenceScore,
         relevance_score: relevanceScore,
+        star_score: starScore,
       },
       strengths: Array.from(strengthsSet),
       areas_for_improvement: Array.from(improvementsSet),
-      recommended_practice_areas: Array.from(practiceAreasSet),
-      submitted_answers_count: answers.length,
+      missing_concepts: Array.from(missingConceptsSet),
+      submitted_answers_count: answersCount,
       total_questions_count: questions?.length || 0,
+      answers,
       disclaimer: INTERVIEW_PRACTICE_DISCLAIMER,
     });
   } catch (error) {

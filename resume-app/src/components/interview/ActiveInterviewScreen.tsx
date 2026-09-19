@@ -18,10 +18,20 @@ export interface ActiveInterviewScreenProps {
   category?: string;
   hasCamera?: boolean;
   hasMic?: boolean;
-  onSubmitAnswer: (answerText: string, durationSec: number) => Promise<void>;
+  onSubmitAnswer: (answerText: string, durationSec: number, postureMetrics?: any) => Promise<void>;
   onSkipQuestion: () => void;
   onExitInterview: () => void;
 }
+
+export type SpeechStateMachineState =
+  | "IDLE"
+  | "REQUESTING_PERMISSION"
+  | "MICROPHONE_READY"
+  | "LISTENING"
+  | "SPEECH_DETECTED"
+  | "PROCESSING"
+  | "TRANSCRIPT_READY"
+  | "ERROR";
 
 export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
   config,
@@ -49,7 +59,18 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Posture Metrics
+  // Posture Frame-by-Frame Tracking Metrics over time
+  const postureFrameStatsRef = useRef({
+    totalFramesAnalyzed: 0,
+    centeredFrames: 0,
+    leftFrames: 0,
+    rightFrames: 0,
+    highFrames: 0,
+    lowFrames: 0,
+    tiltedFrames: 0,
+    notDetectedFrames: 0,
+  });
+
   const [postureHint, setPostureHint] = useState<string>("Analyzing camera alignment & posture...");
   const [postureStatus, setPostureStatus] = useState<"good" | "warning" | "error">("warning");
   const [faceDetected, setFaceDetected] = useState<boolean>(false);
@@ -75,7 +96,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     postureStatus: "warning",
   });
 
-  // ── 2. Speech-to-Text & Mic Engine State ──
+  // ── 2. Speech-to-Text & Mic Engine State Machine ──
   const speechRecognitionRef = useRef<any | null>(null);
   const isRecordingRef = useRef<boolean>(false);
   const baseTextRef = useRef<string>("");
@@ -83,8 +104,8 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
 
   const [micPermissionGranted, setMicPermissionGranted] = useState<boolean>(false);
   const [speechSupported, setSpeechSupported] = useState<boolean>(true);
+  const [speechState, setSpeechState] = useState<SpeechStateMachineState>("IDLE");
   const [speechStatusMessage, setSpeechStatusMessage] = useState<string>("Click 'Start Voice Input' to begin speaking");
-  const [speechStatusType, setSpeechStatusType] = useState<"idle" | "listening" | "error" | "unsupported">("idle");
 
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -99,7 +120,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     return () => clearInterval(interval);
   }, [questionIndex]);
 
-  // Reset speech state when question changes
+  // Reset speech state & posture stats when question changes to prevent stale data
   useEffect(() => {
     if (isRecordingRef.current && speechRecognitionRef.current) {
       try {
@@ -110,6 +131,19 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     }
     finalTranscriptRef.current = "";
     baseTextRef.current = "";
+    setAnswerText("");
+    setSpeechState("IDLE");
+    setSpeechStatusMessage("Click 'Start Voice Input' to begin speaking");
+    postureFrameStatsRef.current = {
+      totalFramesAnalyzed: 0,
+      centeredFrames: 0,
+      leftFrames: 0,
+      rightFrames: 0,
+      highFrames: 0,
+      lowFrames: 0,
+      tiltedFrames: 0,
+      notDetectedFrames: 0,
+    };
   }, [questionIndex]);
 
   // Check browser SpeechRecognition support on mount
@@ -119,14 +153,10 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
         ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
         : null;
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("[Speech] Browser support:", !!SpeechRec);
-    }
-
     if (!SpeechRec) {
       setSpeechSupported(false);
-      setSpeechStatusType("unsupported");
-      setSpeechStatusMessage("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+      setSpeechState("ERROR");
+      setSpeechStatusMessage("Speech recognition is not supported in this browser.");
     }
   }, []);
 
@@ -144,7 +174,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
         setCameraPermissionGranted(false);
         setFaceDetected(false);
         setPostureStatus("error");
-        setPostureHint("Camera disabled • Practice continues in text mode");
+        setPostureHint("Camera disabled • Posture data unavailable");
         return;
       }
 
@@ -181,9 +211,9 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
         if (isSubscribed) {
           setCameraActive(false);
           setCameraPermissionGranted(false);
-          setCameraError("Camera access denied or unavailable.");
+          setCameraError("Camera permission denied or unavailable.");
           setPostureStatus("error");
-          setPostureHint("Camera unavailable • Position guidance disabled");
+          setPostureHint("Camera unavailable • Posture data unavailable");
         }
       }
     };
@@ -199,7 +229,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     };
   }, [cameraActive]);
 
-  // ── 4. Computer Vision Posture Analysis Engine (Client-Side Only) ──
+  // ── 4. Computer Vision Posture Analysis Engine (Real Frame Tracking) ──
   useEffect(() => {
     if (!cameraActive || !cameraPermissionGranted) return;
 
@@ -281,36 +311,43 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
 
       setFaceDetected(faceDetectedVal);
 
+      // Record frame statistics for true calculated posture score
+      const stats = postureFrameStatsRef.current;
+      stats.totalFramesAnalyzed++;
+
       let statusVal: "good" | "warning" | "error" = "good";
-      let hintVal = "Excellent camera alignment";
+      let hintVal = "Face remained centered";
 
       if (!faceDetectedVal) {
         statusVal = "error";
         hintVal = "Face not detected — please position yourself in front of the camera.";
+        stats.notDetectedFrames++;
       } else if (faceCenterYVal < 0.25) {
         statusVal = "warning";
-        hintVal = "Face too high — adjust your camera angle or sit lower";
+        hintVal = "Face too high — adjust camera angle";
+        stats.highFrames++;
       } else if (faceCenterYVal > 0.70) {
         statusVal = "warning";
-        hintVal = "Face too low — sit up straight or tilt camera up";
+        hintVal = "Face too low — sit up straight";
+        stats.lowFrames++;
       } else if (faceCenterXVal > 0.65) {
         statusVal = "warning";
-        hintVal = "Face too far left — center yourself in the camera frame";
+        hintVal = "Face too far left — center yourself";
+        stats.leftFrames++;
       } else if (faceCenterXVal < 0.35) {
         statusVal = "warning";
-        hintVal = "Face too far right — center yourself in the camera frame";
+        hintVal = "Face too far right — center yourself";
+        stats.rightFrames++;
       } else if (Math.abs(rollEstimate) > 22) {
         statusVal = "warning";
-        hintVal = "Face tilted — please sit upright";
+        hintVal = "Face tilted — sit upright";
+        stats.tiltedFrames++;
       } else if (Math.abs(yawEstimate) > 25 || Math.abs(pitchEstimate) > 25) {
         statusVal = "warning";
-        hintVal = "Looking away — please look directly toward the camera";
-      } else if (faceSizeVal > 0.48) {
-        statusVal = "warning";
-        hintVal = "Too close — move slightly farther back";
-      } else if (faceSizeVal < 0.07) {
-        statusVal = "warning";
-        hintVal = "Adjust your position for better detection";
+        hintVal = "Looking away — look toward camera";
+        stats.leftFrames++;
+      } else {
+        stats.centeredFrames++;
       }
 
       setPostureStatus(statusVal);
@@ -364,7 +401,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
-  // ── 6. Speech-to-Text Voice Engine Implementation ──
+  // ── 6. Speech-to-Text Voice Engine State Machine ──
   const toggleRecording = async () => {
     if (isRecordingRef.current) {
       stopSpeechRecognition();
@@ -377,10 +414,13 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
         : null;
 
     if (!SpeechRec) {
-      setSpeechStatusType("unsupported");
-      setSpeechStatusMessage("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+      setSpeechState("ERROR");
+      setSpeechStatusMessage("Speech recognition is not supported in this browser.");
       return;
     }
+
+    setSpeechState("REQUESTING_PERMISSION");
+    setSpeechStatusMessage("Requesting microphone access...");
 
     // Request Mic permission first
     try {
@@ -389,11 +429,12 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
         audioStreamRef.current = stream;
       }
       setMicPermissionGranted(true);
+      setSpeechState("MICROPHONE_READY");
     } catch (err: any) {
       console.warn("Microphone access denied:", err.message);
       setMicPermissionGranted(false);
-      setSpeechStatusType("error");
-      setSpeechStatusMessage("Microphone permission denied. Please allow microphone access in your browser settings.");
+      setSpeechState("ERROR");
+      setSpeechStatusMessage("Microphone permission denied.");
       return;
     }
 
@@ -409,17 +450,12 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
       recognition.lang = "en-US";
 
       recognition.onstart = () => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Speech] Recognition started");
-        }
-        setSpeechStatusType("listening");
-        setSpeechStatusMessage("Listening... Speak your response clearly into your microphone");
+        setSpeechState("LISTENING");
+        setSpeechStatusMessage("Listening... Speak your response into your microphone");
       };
 
       recognition.onresult = (event: any) => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Speech] Result received");
-        }
+        setSpeechState("SPEECH_DETECTED");
 
         let currentInterim = "";
         let currentFinal = "";
@@ -437,11 +473,6 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
           finalTranscriptRef.current += currentFinal;
         }
 
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Speech] Interim transcript:", currentInterim);
-          console.log("[Speech] Final transcript:", finalTranscriptRef.current);
-        }
-
         const combinedText =
           (baseTextRef.current ? baseTextRef.current.trim() + " " : "") +
           finalTranscriptRef.current +
@@ -451,44 +482,33 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
       };
 
       recognition.onerror = (event: any) => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Speech] Recognition error:", event.error);
-        }
-
         let userMsg = "Speech recognition error occurred.";
         switch (event.error) {
           case "not-allowed":
-            userMsg = "Microphone permission denied. Please allow microphone access in browser settings.";
+            userMsg = "Microphone permission denied.";
             break;
           case "service-not-allowed":
-            userMsg = "Speech recognition service unavailable on this device.";
+            userMsg = "Speech recognition service unavailable.";
             break;
           case "no-speech":
-            userMsg = "No speech detected. Please speak clearly into your microphone.";
+            userMsg = "No speech detected.";
             break;
           case "audio-capture":
-            userMsg = "Microphone not detected. Please verify your microphone is plugged in.";
+            userMsg = "Microphone not detected.";
             break;
           case "network":
-            userMsg = "Network error during speech recognition. Please check your internet connection.";
-            break;
-          case "aborted":
-            userMsg = "Speech recognition stopped.";
+            userMsg = "Network error during speech recognition.";
             break;
         }
 
         if (event.error !== "no-speech") {
-          setSpeechStatusType("error");
+          setSpeechState("ERROR");
           setSpeechStatusMessage(userMsg);
           stopSpeechRecognition();
         }
       };
 
       recognition.onend = () => {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[Speech] Recognition ended");
-        }
-
         if (isRecordingRef.current && speechRecognitionRef.current) {
           try {
             recognition.start();
@@ -505,7 +525,6 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
       recognition.start();
       startAudioMeter();
     } catch (err: any) {
-      console.warn("Failed to initialize SpeechRecognition:", err.message);
       stopSpeechRecognition();
     }
   };
@@ -520,9 +539,9 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
       speechRecognitionRef.current = null;
     }
     stopAudioMeter();
-    if (speechStatusType === "listening") {
-      setSpeechStatusType("idle");
-      setSpeechStatusMessage("Voice input paused. Click 'Start Voice Input' to continue.");
+    if (speechState === "LISTENING" || speechState === "SPEECH_DETECTED") {
+      setSpeechState("TRANSCRIPT_READY");
+      setSpeechStatusMessage("Voice recording complete.");
     }
   };
 
@@ -582,6 +601,23 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     };
   }, []);
 
+  const getPostureMetricsForSubmission = () => {
+    const stats = postureFrameStatsRef.current;
+    if (!cameraActive || !cameraPermissionGranted || stats.totalFramesAnalyzed === 0) {
+      return {
+        totalFrames: 0,
+        centeredFrames: 0,
+        centeredPercentage: null,
+      };
+    }
+    const centeredPercentage = Math.round((stats.centeredFrames / stats.totalFramesAnalyzed) * 100);
+    return {
+      totalFrames: stats.totalFramesAnalyzed,
+      centeredFrames: stats.centeredFrames,
+      centeredPercentage,
+    };
+  };
+
   const handleFinishAnswerSubmit = async () => {
     if (window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -589,10 +625,13 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
     }
 
     stopSpeechRecognition();
+    setSpeechState("PROCESSING");
     setIsAnalyzing(true);
+
+    const postureMetrics = getPostureMetricsForSubmission();
+
     try {
-      await onSubmitAnswer(answerText || "No verbal response provided.", timerSeconds);
-      setAnswerText("");
+      await onSubmitAnswer(answerText, timerSeconds, postureMetrics);
     } finally {
       setIsAnalyzing(false);
     }
@@ -712,14 +751,14 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
 
               {/* Speech Recognition Status Banner */}
               <div className={`p-3 rounded-lg border text-2xs transition-all flex items-center justify-between ${
-                speechStatusType === "listening"
+                speechState === "LISTENING" || speechState === "SPEECH_DETECTED"
                   ? "bg-[#EEF2FF] border-[#C7D2FE] text-[#3730A3]"
-                  : speechStatusType === "error" || speechStatusType === "unsupported"
+                  : speechState === "ERROR" || !speechSupported
                   ? "bg-[#FEF2F2] border-[#FCA5A5] text-[#991B1B]"
                   : "bg-[#FAF9F6] border-[#E4E4E7] text-[#52525B]"
               }`}>
                 <div className="flex items-center gap-2">
-                  {speechStatusType === "listening" ? (
+                  {speechState === "LISTENING" || speechState === "SPEECH_DETECTED" ? (
                     <Mic className="w-3.5 h-3.5 text-[#4F46E5] animate-pulse flex-shrink-0" />
                   ) : (
                     <AlertCircle className="w-3.5 h-3.5 text-[#71717A] flex-shrink-0" />
@@ -727,7 +766,7 @@ export const ActiveInterviewScreen: React.FC<ActiveInterviewScreenProps> = ({
                   <span>{speechStatusMessage}</span>
                 </div>
 
-                {(speechStatusType === "unsupported" || speechStatusType === "error") && (
+                {(!speechSupported || speechState === "ERROR") && (
                   <Button
                     variant="outline"
                     size="sm"

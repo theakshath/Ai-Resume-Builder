@@ -41,7 +41,7 @@ export interface RecentInterviewsListProps {
 }
 
 export const RecentInterviewsList: React.FC<RecentInterviewsListProps> = ({
-  interviews = mockInterviews,
+  interviews = [],
   onStartNew,
   onViewFeedback,
 }) => {
@@ -67,44 +67,51 @@ export const RecentInterviewsList: React.FC<RecentInterviewsListProps> = ({
         </div>
       </CardHeader>
       <CardContent className="pt-4 space-y-3">
-        {interviews.map((session) => (
-          <div
-            key={session.id}
-            className="p-3.5 bg-[#FAF9F6] border border-[#E4E4E7] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#D4D4D8] transition-colors"
-          >
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-lg bg-white border border-[#E4E4E7] text-[#4F46E5] shrink-0 mt-0.5">
-                <Award className="w-4 h-4" />
-              </div>
-              <div className="space-y-0.5 text-left">
-                <h4 className="text-xs font-bold text-[#09090B]">{session.role}</h4>
-                <p className="text-[11px] text-[#52525B]">
-                  {session.type} • {session.questionsCount} Questions Evaluated
-                </p>
-                <div className="flex items-center gap-2 text-[10px] text-[#A1A1AA] pt-0.5">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> {session.date}
-                  </span>
+        {interviews.length === 0 ? (
+          <div className="p-8 text-center text-xs text-[#71717A] space-y-2">
+            <p className="font-semibold text-[#09090B]">No interview sessions completed yet.</p>
+            <p>Click &quot;Start Practice&quot; to begin your personalized AI Mock Interview.</p>
+          </div>
+        ) : (
+          interviews.map((session) => (
+            <div
+              key={session.id}
+              className="p-3.5 bg-[#FAF9F6] border border-[#E4E4E7] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#D4D4D8] transition-colors"
+            >
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-lg bg-white border border-[#E4E4E7] text-[#4F46E5] shrink-0 mt-0.5">
+                  <Award className="w-4 h-4" />
+                </div>
+                <div className="space-y-0.5 text-left">
+                  <h4 className="text-xs font-bold text-[#09090B]">{session.role}</h4>
+                  <p className="text-[11px] text-[#52525B]">
+                    {session.type} • {session.questionsCount} Questions Evaluated
+                  </p>
+                  <div className="flex items-center gap-2 text-[10px] text-[#A1A1AA] pt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" /> {session.date}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E4E4E7]">
-              <Badge variant="indigo" size="md" className="font-bold">
-                {session.score}/100 Score
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onViewFeedback?.(session.id)}
-                rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
-                className="text-xs font-medium text-[#4F46E5] hover:bg-white"
-              >
-                View Feedback
-              </Button>
+              <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E4E4E7]">
+                <Badge variant={session.score >= 75 ? "indigo" : session.score >= 40 ? "warning" : "error"} size="md" className="font-bold">
+                  {typeof session.score === 'number' ? `${session.score}/100 Score` : "Not enough data"}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewFeedback?.(session.id)}
+                  rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
+                  className="text-xs font-medium text-[#4F46E5] hover:bg-white"
+                >
+                  View Feedback
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </CardContent>
     </Card>
   );

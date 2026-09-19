@@ -27,7 +27,13 @@ export default function MockInterviewPage() {
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
   const [currentAnswerFeedback, setCurrentAnswerFeedback] = useState<any | null>(null);
-  const [finalScore, setFinalScore] = useState(88);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [lastSubmittedAnswer, setLastSubmittedAnswer] = useState<{ text: string; duration: number; posture?: any } | null>(null);
+
+  const [evaluatedQuestions, setEvaluatedQuestions] = useState<any[]>([]);
+  const [sessionResultsData, setSessionResultsData] = useState<any | null>(null);
+  const [lastPosturePercentage, setLastPosturePercentage] = useState<number | null>(null);
+
   const [disclaimer, setDisclaimer] = useState<string | null>(null);
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -54,6 +60,9 @@ export default function MockInterviewPage() {
     setToastMessage(`Initializing AI Mock Interview (${config.questionsCount || 30} Questions)...`);
     setInitError(null);
     setIsInitializing(true);
+    setEvaluatedQuestions([]);
+    setSessionResultsData(null);
+    setLastPosturePercentage(null);
 
     try {
       // Create session
@@ -76,7 +85,7 @@ export default function MockInterviewPage() {
       const interviewId = createRes.data.id;
       setSessionId(interviewId);
 
-      // Start session & generate 30+ questions
+      // Start session & generate questions
       const startRes = await fetchApi<any>(`/api/interviews/${interviewId}/start`, {
         method: "POST",
       });
@@ -100,8 +109,15 @@ export default function MockInterviewPage() {
     }
   };
 
-  const handleSubmitAnswer = async (answerText: string, durationSec: number) => {
+  const handleSubmitAnswer = async (answerText: string, durationSec: number, postureMetrics?: any) => {
     if (!sessionId || questions.length === 0) return;
+
+    setLastSubmittedAnswer({ text: answerText, duration: durationSec, posture: postureMetrics });
+    setEvalError(null);
+
+    if (postureMetrics && typeof postureMetrics.centeredPercentage === 'number') {
+      setLastPosturePercentage(postureMetrics.centeredPercentage);
+    }
 
     const currentQuestion = questions[currentQuestionIdx];
     try {
@@ -109,17 +125,53 @@ export default function MockInterviewPage() {
         method: "POST",
         body: JSON.stringify({
           question_id: currentQuestion.id,
+          question_text: currentQuestion.question,
           answer_text: answerText,
+          category: currentQuestion.category || "General",
+          interview_type: (config.interviewType || "mixed").toLowerCase(),
           duration_seconds: durationSec,
         }),
       });
 
       if (ansRes.success && ansRes.data) {
         setCurrentAnswerFeedback(ansRes.data);
+        setEvaluatedQuestions((prev) => [
+          ...prev,
+          {
+            questionId: currentQuestion.id,
+            questionText: currentQuestion.question,
+            category: currentQuestion.category,
+            transcript: answerText,
+            durationSeconds: durationSec,
+            evalResult: ansRes.data.eval_result || {
+              overallScore: ansRes.data.overall_score,
+              technicalScore: ansRes.data.technical_score,
+              correctnessScore: ansRes.data.correctness_score,
+              depthScore: ansRes.data.depth_score,
+              relevanceScore: ansRes.data.relevance_score,
+              clarityScore: ansRes.data.clarity_score,
+              completenessScore: ansRes.data.completeness_score,
+              communicationScore: ansRes.data.communication_score,
+              structureScore: ansRes.data.structure_score,
+              starScore: ansRes.data.star_score,
+              starApplicable: ansRes.data.star_applicable,
+              isSubstantive: ansRes.data.is_substantive,
+              strengths: ansRes.data.ai_feedback?.strengths || [],
+              weaknesses: ansRes.data.ai_feedback?.improvements || [],
+              missingConcepts: ansRes.data.ai_feedback?.missing_concepts || [],
+              improvementSuggestions: ansRes.data.ai_feedback?.improvements || [],
+              feedback: ansRes.data.ai_feedback?.summary,
+            },
+          },
+        ]);
+        setFeedbackModalOpen(true);
+      } else {
+        setEvalError(ansRes.error?.message || "AI evaluation temporarily unavailable. Please retry.");
         setFeedbackModalOpen(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Answer submission error:", err);
+      setEvalError(err.message || "AI evaluation temporarily unavailable. Please retry.");
       setFeedbackModalOpen(true);
     }
   };
@@ -132,12 +184,20 @@ export default function MockInterviewPage() {
     } else {
       // Complete interview session
       if (sessionId) {
-        const compRes = await fetchApi<any>(`/api/interviews/${sessionId}/complete`, {
-          method: "POST",
-        });
-        if (compRes.success && compRes.data) {
-          setFinalScore(compRes.data.interview?.overall_score || 88);
-          setDisclaimer(compRes.data.disclaimer || null);
+        try {
+          const compRes = await fetchApi<any>(`/api/interviews/${sessionId}/complete`, {
+            method: "POST",
+          });
+          if (compRes.success && compRes.data) {
+            setDisclaimer(compRes.data.disclaimer || null);
+          }
+
+          const resultsRes = await fetchApi<any>(`/api/interviews/${sessionId}/results`);
+          if (resultsRes.success && resultsRes.data) {
+            setSessionResultsData(resultsRes.data);
+          }
+        } catch (err) {
+          console.error("Complete session error:", err);
         }
       }
       setSessionState("completed");
@@ -149,6 +209,10 @@ export default function MockInterviewPage() {
     setCurrentQuestionIdx(0);
     setSessionId(null);
     setQuestions([]);
+    setEvaluatedQuestions([]);
+    setSessionResultsData(null);
+    setCurrentAnswerFeedback(null);
+    setEvalError(null);
   };
 
   const currentQText =
@@ -156,6 +220,34 @@ export default function MockInterviewPage() {
     "Can you describe your architectural approach to designing scalable RESTful APIs?";
 
   const currentCategory = questions[currentQuestionIdx]?.category || "Technical";
+
+  // Calculate scores from actual evaluations for final summary
+  const subCount = evaluatedQuestions.length;
+  const computedOverallScore =
+    subCount > 0
+      ? Math.round(evaluatedQuestions.reduce((s, item) => s + (item.evalResult?.overallScore ?? 0), 0) / subCount)
+      : sessionResultsData?.scores?.overall_score ?? null;
+
+  const computedTechnicalScore =
+    subCount > 0
+      ? Math.round(evaluatedQuestions.reduce((s, item) => s + (item.evalResult?.technicalScore ?? 0), 0) / subCount)
+      : sessionResultsData?.scores?.technical_score ?? null;
+
+  const computedCommunicationScore =
+    subCount > 0
+      ? Math.round(evaluatedQuestions.reduce((s, item) => s + (item.evalResult?.communicationScore ?? 0), 0) / subCount)
+      : sessionResultsData?.scores?.communication_score ?? null;
+
+  const starEvaluated = evaluatedQuestions.filter((item) => item.evalResult?.starApplicable && typeof item.evalResult?.starScore === 'number');
+  const computedStarScore =
+    starEvaluated.length > 0
+      ? Math.round(starEvaluated.reduce((s, item) => s + item.evalResult.starScore!, 0) / starEvaluated.length)
+      : sessionResultsData?.scores?.star_score ?? null;
+
+  // Aggregate strengths & weaknesses summary
+  const aggStrengths = Array.from(new Set(evaluatedQuestions.flatMap((i) => i.evalResult?.strengths || [])));
+  const aggWeaknesses = Array.from(new Set(evaluatedQuestions.flatMap((i) => i.evalResult?.improvementSuggestions || i.evalResult?.weaknesses || [])));
+  const aggMissing = Array.from(new Set(evaluatedQuestions.flatMap((i) => i.evalResult?.missingConcepts || [])));
 
   return (
     <div className="space-y-6">
@@ -233,9 +325,16 @@ export default function MockInterviewPage() {
             </div>
           )}
           <FinalInterviewResult
-            overallScore={finalScore}
+            overallScore={computedOverallScore}
+            technicalScore={computedTechnicalScore}
+            communicationScore={computedCommunicationScore}
+            starScore={computedStarScore}
+            posturePercentage={lastPosturePercentage}
             role={config.role}
-            questionsList={questions}
+            evaluatedQuestions={evaluatedQuestions}
+            strengthsSummary={aggStrengths}
+            weaknessesSummary={aggWeaknesses}
+            missingConceptsSummary={aggMissing}
             onPracticeAgain={handlePracticeAgain}
           />
         </div>
@@ -246,15 +345,27 @@ export default function MockInterviewPage() {
         isOpen={feedbackModalOpen}
         onClose={() => setFeedbackModalOpen(false)}
         onNextQuestion={handleNextQuestion}
+        onRetry={
+          lastSubmittedAnswer
+            ? () => handleSubmitAnswer(lastSubmittedAnswer.text, lastSubmittedAnswer.duration, lastSubmittedAnswer.posture)
+            : undefined
+        }
         isLastQuestion={currentQuestionIdx + 1 >= (questions.length || 30)}
-        score={currentAnswerFeedback?.overall_score ?? 88}
-        communicationScore={currentAnswerFeedback?.communication_score ?? 85}
-        structureScore={currentAnswerFeedback?.relevance_score ?? 88}
-        confidenceScore={currentAnswerFeedback?.confidence_score ?? 82}
-        technicalRelevance={currentAnswerFeedback?.technical_score ?? 90}
-        strengths={currentAnswerFeedback?.ai_feedback?.strengths || currentAnswerFeedback?.feedback?.strengths}
-        adjustments={currentAnswerFeedback?.ai_feedback?.improvements || currentAnswerFeedback?.feedback?.improvements}
-        recommendedPhrasing={currentAnswerFeedback?.ai_feedback?.summary || currentAnswerFeedback?.feedback?.summary}
+        isError={evalError !== null}
+        errorMessage={evalError || undefined}
+        score={currentAnswerFeedback?.overall_score ?? currentAnswerFeedback?.eval_result?.overallScore}
+        technicalScore={currentAnswerFeedback?.technical_score ?? currentAnswerFeedback?.eval_result?.technicalScore}
+        relevanceScore={currentAnswerFeedback?.relevance_score ?? currentAnswerFeedback?.eval_result?.relevanceScore}
+        communicationScore={currentAnswerFeedback?.communication_score ?? currentAnswerFeedback?.eval_result?.communicationScore}
+        correctnessScore={currentAnswerFeedback?.correctness_score ?? currentAnswerFeedback?.eval_result?.correctnessScore}
+        depthScore={currentAnswerFeedback?.depth_score ?? currentAnswerFeedback?.eval_result?.depthScore}
+        starScore={currentAnswerFeedback?.star_score ?? currentAnswerFeedback?.eval_result?.starScore}
+        starApplicable={currentAnswerFeedback?.star_applicable ?? currentAnswerFeedback?.eval_result?.starApplicable}
+        isSubstantive={currentAnswerFeedback?.is_substantive ?? currentAnswerFeedback?.eval_result?.isSubstantive}
+        strengths={currentAnswerFeedback?.ai_feedback?.strengths || currentAnswerFeedback?.eval_result?.strengths}
+        adjustments={currentAnswerFeedback?.ai_feedback?.improvements || currentAnswerFeedback?.eval_result?.improvementSuggestions || currentAnswerFeedback?.eval_result?.weaknesses}
+        missingConcepts={currentAnswerFeedback?.ai_feedback?.missing_concepts || currentAnswerFeedback?.eval_result?.missingConcepts}
+        recommendedPhrasing={currentAnswerFeedback?.ai_feedback?.summary || currentAnswerFeedback?.eval_result?.feedback}
       />
 
       {/* Feedback Toast */}

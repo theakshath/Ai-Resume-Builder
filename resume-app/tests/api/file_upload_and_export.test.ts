@@ -67,7 +67,7 @@ async function runFileUploadAndExportTests() {
       { section_type: 'skills', content: { text: 'TypeScript, Node.js, PostgreSQL' } },
     ];
 
-    const pdfBuffer = generateResumePDFBuffer(resume, sections, 'Modern Tech');
+    const pdfBuffer = generateResumePDFBuffer({ ...resume, sections }, 'Modern Tech');
 
     if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0) {
       throw new Error('Failed to generate PDF buffer');
