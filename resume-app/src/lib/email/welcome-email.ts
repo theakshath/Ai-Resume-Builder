@@ -8,7 +8,17 @@ export interface SendWelcomeEmailParams {
   fullName: string;
 }
 
-export function buildWelcomeEmailHtml(fullName: string): string {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function buildWelcomeEmailHtml(rawFullName: string): string {
+  const fullName = escapeHtml((rawFullName || "").slice(0, 100));
   const name = fullName ? fullName.split(" ")[0] : "User";
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://resume-app-ten-nu.vercel.app";
 

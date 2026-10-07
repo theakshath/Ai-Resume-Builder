@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isMockEnvironment } from '@/lib/env';
 import { cookies } from 'next/headers';
+import { handleApiError, ApiError } from '@/lib/errors/api-error';
+import { checkIpRateLimit } from '@/lib/security/rate-limiter';
 
+const existsSchema = z.object({
+  email: z.string().trim().toLowerCase().max(254).email(),
+});
+
+/**
+ * POST /api/auth/exists
+ *
+ * NOTE: An "does this email have an account?" endpoint inherently allows
+ * account enumeration. It is strictly rate-limited per IP and returns only
+ * generic errors. Consider removing it and relying on Firebase's own
+ * sign-in error flow if the UX allows.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const email = body.email;
+    checkIpRateLimit(request, 'auth_lookup');
 
-    if (!email || typeof email !== 'string') {
-      return NextResponse.json(
-        { success: false, error: { message: 'Email is required' } },
-        { status: 400 }
-      );
+    const body = await request.json().catch(() => null);
+    const parsed = existsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw ApiError.badRequest('A valid email address is required');
     }
-
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = parsed.data.email;
 
     // Check mock mode fallback
     if (isMockEnvironment()) {
@@ -40,21 +52,16 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
-      console.error('[AUTH_CHECK] Error checking email existence:', error.message);
-      return NextResponse.json(
-        { success: false, error: { message: 'Failed to verify account' } },
-        { status: 500 }
-      );
+      console.error('[AUTH_CHECK] Lookup failed');
+      throw ApiError.internal('Unable to process request');
     }
 
     return NextResponse.json({
       success: true,
       exists: !!data,
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { success: false, error: { message: err.message || 'Internal server error' } },
-      { status: 500 }
-    );
+  } catch (err) {
+    // handleApiError never exposes raw exception messages to the client.
+    return handleApiError(err);
   }
 }

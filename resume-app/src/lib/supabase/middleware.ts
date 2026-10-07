@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { SESSION_COOKIE_NAME, verifyFirebaseIdToken } from '@/lib/auth/firebase-token';
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://mock-supabase-id.supabase.co';
@@ -32,8 +33,9 @@ export async function updateSession(request: NextRequest) {
       },
     });
 
-    // Check for active session cookies (Firebase / Google / active user session)
-    const mockUserCookie = request.cookies.get('mock-user')?.value || request.cookies.get('active_user_session')?.value;
+    // Verified Firebase session (HttpOnly cookie set by /api/auth/session).
+    // Legacy `mock-user` / `active_user_session` cookies are client-forgeable and are NOT trusted.
+    const firebaseUser = await verifyFirebaseIdToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
 
     let user = null;
     try {
@@ -41,7 +43,7 @@ export async function updateSession(request: NextRequest) {
       user = data?.user;
     } catch {}
 
-    const hasActiveSession = !!mockUserCookie || !!user;
+    const hasActiveSession = !!firebaseUser || !!user;
 
     // Protected route check for /dashboard
     if (request.nextUrl.pathname.startsWith('/dashboard') && !hasActiveSession && process.env.NODE_ENV === 'production') {

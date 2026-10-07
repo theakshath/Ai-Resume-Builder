@@ -81,7 +81,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: {
           code: "INTERVIEW_COMPLETE_FAILED",
-          message: error.message || "Failed to complete interview session.",
+          message: "Failed to complete interview session.",
           retryable: true,
         },
       },

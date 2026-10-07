@@ -11,9 +11,11 @@ import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   signOut,
+  type User,
 } from "firebase/auth";
 import { createUserProfileDoc, getUserProfileDoc, UserProfileData } from "./firestore";
 import { sendWelcomeEmail } from "../email/welcome-email";
+import { syncServerSession } from "./session-sync";
 
 export interface UserSession {
   id: string;
@@ -130,7 +132,7 @@ export async function registerUser(email: string, password: string, fullName: st
       fullName: user.displayName || cleanName,
       provider: "firebase_email",
     };
-    saveActiveSession(session);
+    await saveActiveSession(session, user);
     return session;
   } catch (err: any) {
     throw new Error(getFirebaseAuthError(err));
@@ -170,7 +172,7 @@ export async function loginUser(email: string, password: string): Promise<UserSe
       avatarUrl: user.photoURL || undefined,
       provider: "firebase_email",
     };
-    saveActiveSession(session);
+    await saveActiveSession(session, user);
     return session;
   } catch (err: any) {
     throw new Error(getFirebaseAuthError(err));
@@ -227,7 +229,7 @@ export async function loginWithGoogle(): Promise<UserSession> {
       avatarUrl,
       provider: "google",
     };
-    saveActiveSession(session);
+    await saveActiveSession(session, user);
     return session;
   } catch (err: any) {
     throw new Error(getFirebaseAuthError(err));
@@ -300,13 +302,22 @@ export async function logoutUser(): Promise<void> {
       await signOut(auth);
     } catch {}
   }
+  await syncServerSession(null);
+  // Clean up legacy client-written cookies from older app versions.
   document.cookie = "mock-user=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+  document.cookie = "active_user_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
   localStorage.removeItem("active_user_session");
 }
 
-function saveActiveSession(session: UserSession): void {
-  const sessionStr = JSON.stringify(session);
-  document.cookie = `mock-user=${encodeURIComponent(sessionStr)}; path=/; max-age=86400; SameSite=Lax`;
-  document.cookie = `active_user_session=${encodeURIComponent(sessionStr)}; path=/; max-age=86400; SameSite=Lax`;
-  localStorage.setItem("active_user_session", sessionStr);
+/**
+ * Stores NON-AUTHORITATIVE display data (name/avatar) for the UI and
+ * establishes the verified server session. The server never trusts the
+ * localStorage value; it only trusts the verified Firebase ID token cookie.
+ */
+async function saveActiveSession(session: UserSession, user: User): Promise<void> {
+  localStorage.setItem("active_user_session", JSON.stringify(session));
+  const ok = await syncServerSession(user);
+  if (!ok) {
+    throw new Error("Unable to establish a secure session. Please try again.");
+  }
 }

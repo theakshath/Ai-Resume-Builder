@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: {
           code: "INTERVIEW_CREATION_FAILED",
-          message: error.message || "Unable to start your interview right now. Please try again.",
+          message: "Unable to start your interview right now. Please try again.",
           retryable: true,
         },
       },

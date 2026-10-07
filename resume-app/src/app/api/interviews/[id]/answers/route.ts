@@ -130,7 +130,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: {
           code: "ANSWER_SUBMISSION_FAILED",
-          message: error.message || "AI evaluation temporarily unavailable. Please retry.",
+          message: "AI evaluation temporarily unavailable. Please retry.",
           retryable: true,
         },
       },

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-session";
 import { successResponse } from "@/lib/responses";
+import { parseRequestBody } from "@/lib/validations";
+import { updateResumeSchema } from "@/lib/validations/resume";
 import { getResumeDocById, updateResumeDoc, deleteResumeDoc, ResumeDocument } from "@/lib/firebase/firestore";
 
 interface RouteParams {
@@ -79,12 +81,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    let body: any = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
+    const body = await parseRequestBody(request, updateResumeSchema);
 
     await updateResumeDoc(user.id, id, body);
 

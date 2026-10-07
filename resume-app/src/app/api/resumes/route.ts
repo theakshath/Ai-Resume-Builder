@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/get-session";
 import { paginatedResponse, createdResponse } from "@/lib/responses";
+import { z } from "zod";
+import { parseRequestBody } from "@/lib/validations";
 import { getUserResumesDocs, createResumeDoc, ResumeDocument } from "@/lib/firebase/firestore";
 
 /**
@@ -144,12 +146,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let body: any = {};
-    try {
-      body = await request.json();
-    } catch {
-      body = {};
-    }
+    const bodySchema = z.object({
+      title: z.string().optional(),
+      templateStyle: z.string().optional(),
+      summary: z.string().optional()
+    });
+    const body = await parseRequestBody(request, bodySchema);
 
     const title = body.title?.trim() || "Untitled Resume";
     const now = new Date().toISOString();
@@ -178,7 +180,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: {
           code: "RESUME_CREATION_FAILED",
-          message: error.message || "Failed to create resume.",
+          message: "Failed to create resume.",
         },
       },
       { status: 500 }

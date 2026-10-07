@@ -1,9 +1,10 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, onAuthStateChanged } from "firebase/auth";
+import { User, onAuthStateChanged, onIdTokenChanged } from "firebase/auth";
 import { getFirebaseServices } from "./config";
 import { getUserProfileDoc, UserProfileData } from "./firestore";
+import { syncServerSession } from "./session-sync";
 
 interface AuthContextType {
   user: User | null;
@@ -46,7 +47,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    // Keep the verified HttpOnly server session in sync with Firebase's
+    // hourly ID-token rotation (also fires on sign-in and sign-out).
+    let hadUser = false;
+    const unsubscribeToken = onIdTokenChanged(auth, (firebaseUser: User | null) => {
+      if (firebaseUser) {
+        hadUser = true;
+        void syncServerSession(firebaseUser);
+      } else if (hadUser) {
+        hadUser = false;
+        void syncServerSession(null);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeToken();
+    };
   }, []);
 
   return (

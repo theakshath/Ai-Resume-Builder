@@ -121,7 +121,6 @@ export default function SettingsPage() {
           const parsed = JSON.parse(activeSessionRaw);
           parsed.fullName = fullName.trim();
           localStorage.setItem("active_user_session", JSON.stringify(parsed));
-          document.cookie = `mock-user=${encodeURIComponent(JSON.stringify(parsed))}; path=/; max-age=86400`;
         }
       }
 

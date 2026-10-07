@@ -124,7 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: {
           code: "INTERVIEW_START_FAILED",
-          message: error.message || "Unable to start your interview right now. Please try again.",
+          message: "Unable to start your interview right now. Please try again.",
           retryable: true,
         },
       },
